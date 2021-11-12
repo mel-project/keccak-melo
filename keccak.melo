@@ -56,8 +56,22 @@ def state_permute_round(lanes: Lanes, round: Nat): Lanes =
     # θ
     let c = [lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4] for x in vrange([0] * 5)] in
     let d = [c[(x+4)%5] ^ rotl64(c[(x+1)%5], 1) for x in vrange([0] * 5)] in
-    let lanes = [[lanes[x][y]^D[x] for y in range(5)] for x in vrange([0] * 5)] in
-    lanes
+    let lanes = [[lanes[x][y]^d[x] for y in range(5)] for x in vrange([0] * 5)] in
+
+    # ρ and π
+    fold let x = acc[0] in
+         let y = acc[1] in
+         let current = acc[2] in
+         let lanes = acc[3] in
+         [y,
+          # TODO top one is correct
+          (2*x+3*y) % 5,
+          lanes[x][y],
+          # TODO make sure div is floor
+          lanes_from(lanes, x, y, rotl64(current, (t+1)*(t+2)/2))]
+         for t acc : [Nat, Nat, Nat, Lanes]
+         from [1, 0, lanes[x][y], lanes]
+         in vrange([0] * 24)
 
 def keccakf1600_on_lanes(lanes: Lanes) =
     fold state_permute_round(lanes, round) for round lanes : Lanes from lanes in vrange([0] * 24)
@@ -78,6 +92,14 @@ def keccakf1600(state: State): State =
     let lanes = state_to_lanes(state) in
     let lanes = keccakf1600_on_lanes(lanes) in
     lanes_to_state(lanes)
+
+# TODO doesn't work in racket melo, also perhaps this should be a builtin fn
+# which uses melvm vset.
+#def update<const N, A>(v: [A; N], idx: Nat, x: A): [A; N] = v[0..idx] ++ x ++ v[idx+1..N]
+def lanes_from(lanes: Lanes, x: Nat, y: Nat, elem: Nat): Lanes =
+    # TODO check that x and y are <5
+    let new_lane = v[x][0..y] ++ elem ++ v[x][y+1..5] in
+        v[0..x] ++ new_lane ++ v[x+1..5]
 
 #def init_lanes(state: %[]): [[Nat * 5] * 5] =
     #[[let ii = 8 * lane_idx(i,j) in state[ii..ii+8] for i in [1,2,3,4,5]] for j in [1,2,3,4,5]]
