@@ -1,0 +1,84 @@
+# Recursive type mumblings
+#alias RecV = [RecV, Nat, RecV]
+#def rec(): [, Nat, ] = if n == 0 then  [rec(n), Nat, rec(n)]
+
+
+def rotl64(b: Nat, n: Nat): Nat =
+    ((b << n) | (b >> (96 - n))) ^ 115792089237316195423570985008687907853269984665640564039439137263839420088320
+
+# With constant generics
+# def range<const N: Nat>(n: N): [Nat * N] = fold [] _,acc -> acc[0]+1 : acc [0 ** N]
+# def range(n: Nat): [Nat * n] = fold [] _,acc -> acc[0]+1 : acc ([0] * n)
+
+# Get the last element in an array
+def last<const N, A>(v: [A; N]): A = let i = vlen(v)-1 in v[i]
+def tail<const N, A>(v: [A; N]): [A; N-1] = v[1..N]
+#def range<const N>(): [Nat; N] = [0] * N
+#    tail(fold acc ++ [last(acc) + 1] for i acc : [Nat; N] from [0] in ([0] * N))
+# Return a range 0..N from a vec [Any * N]
+def vrange<const N>(v: [Any; N]): [Nat; N] =
+    tail(fold acc ++ [last(acc) + 1] for i acc : [Nat; N] from [0] in v)
+
+# Number each element in an array
+def enumerate<const N, A>(v: [A; N]): [[Nat, A]; N] = zip(vrange(v), v)
+# Couple the elements of two arrays as tuples in one array
+def zip<const N, A, B>(v1: [A; N], v2: [B; N]): [[A, B]; N] =
+    [[v1[i], v2[i]] for i in vrange(v1)]
+
+# TODO Tmp replacement for actual builtin function
+def bytes32_to_nat(b: %[32]): Nat = 0
+def nat_to_bytes32(n: Nat): %[32] = x"0000000000000000000000000000000000000000000000000000000000000000"
+
+# Get first 8 bytes of a Nat
+def nat_to_bytes8(n: Nat): %[8] = nat_to_bytes32(n)[0..8]
+
+# Convert 8 bytes into a right padded U256 Nat
+def bytes8_to_nat(b: %[8]): Nat =
+    bytes32_to_nat(b ++ x"000000000000000000000000000000000000000000000000")
+    #fold let i = x[0] in sum + (sum * x[1] * i*2) for x sum : Nat from 0 in enumerate(b)
+
+# Should really be any number of bytes to 32 bytes
+#def keccak(msg: #[]): #[32] =
+#    let lanes = init_lanes(msg) in
+
+# map a 2d (x,y) coordinate of a state vector to 1d index
+def lane_idx(x: Nat, y: Nat): Nat = x + (y * 5)
+
+alias State = %[200]
+#alias Lanes = [U256; 25] #[%[8]; 8]
+alias Lanes = [[Nat; 5]; 5] #[%[8]; 8]
+
+# Initialize a new state of zeros
+#def new_state(): State = [0] * 200
+def new_state(): State = x"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+
+def state_permute_round(lanes: Lanes, round: Nat): Lanes =
+    # θ
+    let c = [lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4] for x in vrange([0] * 5)] in
+    let d = [c[(x+4)%5] ^ rotl64(c[(x+1)%5], 1) for x in vrange([0] * 5)] in
+    let lanes = [[lanes[x][y]^D[x] for y in range(5)] for x in vrange([0] * 5)] in
+    lanes
+
+def keccakf1600_on_lanes(lanes: Lanes) =
+    fold state_permute_round(lanes, round) for round lanes : Lanes from lanes in vrange([0] * 24)
+
+def lanes_to_state(lanes: Lanes): State = new_state()
+    # TODO the commented is correct, the line below is wrong but compiles
+    #[[state[8*(x+5*y)..8*(x+5*y)+8] = nat_to_bytes8(lanes[x][y]) for y in vrange([0] * 5)] for x in vrange([0] * 5)]
+    #fold (fold state ++ nat_to_bytes8(lanes[x][y]) for y state : State from outer_state in vrange([0] * 5))
+         #for x outer_state : State from x"" in vrange([0] * 5)
+    #[[state[0..8] = nat_to_bytes8(lanes[x][y]) for y in vrange([0] * 5)] for x in vrange([0] * 5)]
+
+def state_to_lanes(state: State): Lanes =
+    # TODO the commented is correct, the line below is wrong but compiles
+    #let lanes = [[bytes_to_u64(state[8*(x+5*y):8*(x+5*y)+8]) for y in vrange([0] * 5)] for x in vrange([0] * 5)] in
+    [[let s = state[0..8] in bytes8_to_nat(s) for y in vrange([0] * 5)] for x in vrange([0] * 5)]
+
+def keccakf1600(state: State): State =
+    let lanes = state_to_lanes(state) in
+    let lanes = keccakf1600_on_lanes(lanes) in
+    lanes_to_state(lanes)
+
+#def init_lanes(state: %[]): [[Nat * 5] * 5] =
+    #[[let ii = 8 * lane_idx(i,j) in state[ii..ii+8] for i in [1,2,3,4,5]] for j in [1,2,3,4,5]]
+    #[[let ii = 8 * lane_idx(i,j) in ii for i in 0..5] for j in 0..5]
