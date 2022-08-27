@@ -2,7 +2,7 @@
 def rol64(i: Nat, n: Nat): Nat =
     (i << (n % 64) | i >> (64 - (n % 64))) & 115792089237316195423570985008687907853269984665640564039457584007913129639935
 
-# Loads a byte vector of length 8 into a 64-bit integer
+# Loads a byte vector of length 8 into a 64-bit Nat
 def load64(vec: [{0..255}; 8]): Nat =
     let accum = 0 :: Nat in
     let ctr = 0 :: Nat in
@@ -11,7 +11,17 @@ def load64(vec: [{0..255}; 8]): Nat =
         ctr <- ctr + 1
     return accum
 
+# Stores a 64-bit Nat into a byte vector of length 8
+def store64(int: Nat) =
+    unsafe let accum = [] :! [Nat; 8] in
+    let ctr = 0 :: Nat in
+    loop 8 do
+        accum <- (accum ++ [(int >> (ctr * 8)) % 256]) :! [Nat; 8];
+        ctr <- ctr + 1
+    return accum
+
 ---
 
 let v = [1, 2, 4, 0, 1, 1, 1, 255] in
-    load64(v)
+    let int = load64(v) in
+    store64(int)
