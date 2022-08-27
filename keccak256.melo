@@ -1,9 +1,12 @@
+type U8 = {0..255}
+type Lane = [U8; 8]
+
 # ROtate Left 64: rotates 64-bit integer, i, n bits to the left
 def rol64(i: Nat, n: Nat): Nat =
     (i << (n % 64) | i >> (64 - (n % 64))) & 115792089237316195423570985008687907853269984665640564039457584007913129639935
 
 # Loads a byte vector of length 8 into a 64-bit Nat
-def load64(vec: [{0..255}; 8]): Nat =
+def load64(vec: Lane): Nat =
     let accum = 0 :: Nat in
     let ctr = 0 :: Nat in
     loop 8 do
