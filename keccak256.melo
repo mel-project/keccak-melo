@@ -1,46 +1,54 @@
 type Bit = {0..1}
 type U8 = {0..255}
-type U64Vec = [U8; 8]
+type U64 = {0..18446744073709551615}
+type LaneVec = [U8; 8] # a lane as a vector of U8s
+type LaneNat = U64 # a lane as a 64-bit Nat
+type Sheet = [LaneNat; 5]
+type StateLanes = [Sheet; 5]
 type State = [U8; 200]
-type Lanes = [[[Bit; 5]; 5]; 64]
+
 
 # ROtate Left 64: rotates 64-bit integer, i, n bits to the left
 def rol64(i: Nat, n: Nat) =
     (i << (n % 64) | i >> (64 - (n % 64))) & 115792089237316195423570985008687907853269984665640564039457584007913129639935
 
 # Loads a byte vector of length 8 into a 64-bit Nat
-def load64(vec: U64Vec) =
-    let accum = 0 :: Nat in
+def load64(lane_vec: LaneVec) =
+    let lane_nat = 0 :: Nat in
     let ctr = 0 :: Nat in
     loop 8 do
-        accum <- accum + (vref(vec, ctr) << (ctr * 8));
+        lane_nat <- lane_nat + (vref(lane_vec, ctr) << (ctr * 8));
         ctr <- ctr + 1
-    return accum
+    return lane_nat
 
 # Stores a 64-bit Nat into a byte vector of length 8
-def store64(int: Nat) =
-    unsafe let accum = [] :! [Nat; 8] in
+def store64(lane_nat: LaneNat) =
+    unsafe let lane_vec = [] :! [Nat; 8] in
     let ctr = 0 :: Nat in
     loop 8 do
-        accum <- (accum ++ [(int >> (ctr * 8)) % 256]) :! [Nat; 8];
+        lane_vec <- (lane_vec ++ [(lane_nat >> (ctr * 8)) % 256]) :! [Nat; 8];
         ctr <- ctr + 1
-    return accum
+    return lane_vec
 
 def to_lanes(state: State) =
-    let x = 0 in
-    let y = 0 in
-    state[8 * (x + 5 * y)..8 * (x + 5 * y) + 8]
-    # [
-    #     [
-    #         load64(
-    #             state[8*(x+5*y):8*(x+5*y)+8]
-    #         ) for y in range(5)
-    #     ] for x in range(5)
-    # ]
+    unsafe let accum = [] :! StateLanes in
+    let accum_inner = [] :! Sheet in
+    let x = 0 :: {0..4} in
+    let y = 0 :: {0..4} in
+    loop 5 do
+        accum_inner <- [] :! Sheet;
+        # y <- 0;
+        accum_inner <- loop 5 do
+            accum_inner <- (accum_inner ++ [load64(state[8 * (x + 5 * y)..8 * (x + 5 * y) + 8])]) :! Sheet;
+            y <- (y + 1) :! {0..4}
+        return accum_inner;
+        accum <- (accum ++ [accum_inner]) :! StateLanes;
+        x <- (x + 1) :! {0..4};
+    return accum
 
 ---
 
 let s = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 ] in
     to_lanes(s)
