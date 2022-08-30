@@ -47,16 +47,41 @@ def to_lanes(state: State) =
     return accum
 
 # Creates the C sheet which is necessary for computing the D sheet
-def c(state_lanes: StateLanes) =
+def c(lanes: StateLanes) =
     unsafe let c = [] :! Sheet in
     let x = 0 :: {0..4} in
     loop 5 do
-        c <- (c ++ [for sheet in state_lanes[x] fold accum = 0 :: Nat with accum ^ sheet]) :! Sheet;
+        c <- (c ++ [for sheet in lanes[x] fold accum = 0 :: Nat with accum ^ sheet]) :! Sheet;
         x <- (x + 1) :! {0..4}
     return c
+
+# Creates the D sheet which is necessary for computing the θ step of the Keccak permuation
+def d(c: Sheet) =
+    unsafe let d = [] :! Sheet in
+    let x = 0 :: Nat in
+    loop 5 do
+        d <- (d ++ [vref(c, (x + 4) % 5) ^ rol64(vref(c, (x + 1) % 5), 1)]) :! Sheet;
+        x <- x + 1
+    return d
+
+# θ step of permutation
+def theta(lanes: StateLanes) =
+    unsafe let c = c(lanes) in
+    let d = d(c) in
+    let new_lanes = [] :! StateLanes in
+    let sheet = [] :! Sheet in
+    let x = 0 :: {0..4} in
+    let y = 0 :: {0..4} in
+    loop 5 do
+        new_lanes <- (new_lanes ++ loop 5 do
+            sheet <- (sheet ++ [(lanes[x][y] ^ d[x])]) :! Sheet;
+            y <- (y + 1) :! {0..4}
+        return [sheet]) :! StateLanes;
+        x <- (x + 1) :! {0..4}
+    return new_lanes
 
 ---
 
 let s = [
     255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-] in c(to_lanes(s))
+] in theta(to_lanes(s))
