@@ -8,9 +8,9 @@ type StateLanes = [Sheet; 5]
 type State = [U8; 200]
 
 
-# ROtate Left 64: rotates 64-bit integer, i, n bits to the left
-def rol64(i: Nat, n: Nat) =
-    (i << (n % 64) | i >> (64 - (n % 64))) & 115792089237316195423570985008687907853269984665640564039457584007913129639935
+# ROtate Left 64: rotates 64-bit Nat, n, b bits to the left
+def rol64(n: Nat, b: Nat) =
+    (n << (b % 64) | n >> (64 - (b % 64))) & 115792089237316195423570985008687907853269984665640564039457584007913129639935
 
 # Loads a byte vector of length 8 into a 64-bit Nat
 def load64(lane_vec: LaneVec) =
@@ -30,6 +30,7 @@ def store64(lane_nat: LaneNat) =
         ctr <- ctr + 1
     return lane_vec
 
+# Converts State type to StateLane type
 def to_lanes(state: State) =
     unsafe let accum = [] :! StateLanes in
     let accum_inner = [] :! Sheet in
@@ -37,7 +38,6 @@ def to_lanes(state: State) =
     let y = 0 :: {0..4} in
     loop 5 do
         accum_inner <- [] :! Sheet;
-        # y <- 0;
         accum_inner <- loop 5 do
             accum_inner <- (accum_inner ++ [load64(state[8 * (x + 5 * y)..8 * (x + 5 * y) + 8])]) :! Sheet;
             y <- (y + 1) :! {0..4}
@@ -46,9 +46,17 @@ def to_lanes(state: State) =
         x <- (x + 1) :! {0..4};
     return accum
 
+# Creates the C sheet which is necessary for computing the D sheet
+def c(state_lanes: StateLanes) =
+    unsafe let c = [] :! Sheet in
+    let x = 0 :: {0..4} in
+    loop 5 do
+        c <- (c ++ [for sheet in state_lanes[x] fold accum = 0 :: Nat with accum ^ sheet]) :! Sheet;
+        x <- (x + 1) :! {0..4}
+    return c
+
 ---
 
 let s = [
-    255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-] in
-    to_lanes(s)
+    255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+] in c(to_lanes(s))
