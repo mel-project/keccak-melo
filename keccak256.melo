@@ -46,7 +46,7 @@ def to_lanes(state: State) =
         x <- (x + 1) :! {0..4};
     return accum
 
-# Creates the C sheet which is necessary for computing the D sheet
+# Returns the C sheet which is necessary for computing the D sheet
 def c(lanes: StateLanes) =
     unsafe let c = [] :! Sheet in
     let x = 0 :: {0..4} in
@@ -55,7 +55,7 @@ def c(lanes: StateLanes) =
         x <- (x + 1) :! {0..4}
     return c
 
-# Creates the D sheet which is necessary for computing the θ step of the Keccak permuation
+# Returns the D sheet which is necessary for computing the θ step of the permutation
 def d(c: Sheet) =
     unsafe let d = [] :! Sheet in
     let x = 0 :: Nat in
@@ -98,8 +98,26 @@ def rho_and_pi(lanes: StateLanes) =
         t <- (t + 1) :! {0..23}
     return lanes
 
+# Returns the T sheet which is necessary for computing the χ step of the permutation
+def t(lanes: StateLanes, y: {0..4}) =
+    [sheet[y] for sheet in lanes]
+
+# χ step of permutation
+def chi(lanes: StateLanes) =
+    unsafe let y = 0 :: {0..4} in
+    let x = 0 :: {0..4} in
+    let t = t(lanes, y) in
+    loop 5 do
+        lanes <- loop 5 do
+            lanes <- lanes[x => lanes[x][y => (t[x] ^ ((~vref(t, (x + 1) % 5)) & vref(t, (x + 2) % 5))) :! {0..4}]];
+            x <- (x + 1) :! {0..4}
+        return lanes;
+        y <- (y + 1) :! {0..4}
+    return lanes
+
 ---
 
 let s = [
     255, 255, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-] in rho_and_pi(theta(to_lanes(s)))
+] in #rho_and_pi(theta(to_lanes(s)))
+    chi(to_lanes(s))
