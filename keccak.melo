@@ -116,16 +116,31 @@ def chi(lanes: StateLanes) =
         y <- (y + 1) :! {0..4}
     return lanes
 
-def iota(lanes: StateLanes, r: {0..255}) =
+# ι step of permutation
+def iota(lanes: StateLanes, r: U8) =
     unsafe let j = 0 :: Nat in
     loop 7 do
-        r <- (((r << 1) ^ ((r >> 7) * 113)) % 256) :! {0..255};
+        r <- (((r << 1) ^ ((r >> 7) * 113)) % 256) :! U8;
         lanes <- if r & 2 then lanes[0 => lanes[0][0 => (lanes[0][0] ^ (1 << ((1 << j) - 1))) :! LaneNat]] else lanes;
         j <- j + 1
+    return lanes
+
+# Computes the next R given the current R
+def next_r(r: U8) =
+    unsafe loop 7 do
+        r <- (((r << 1) ^ ((r >> 7) * 113)) % 256) :! U8
+    return r
+
+# Keccak-f1600 permutation on lanes
+def keccakf1600_on_lanes(lanes: StateLanes) =
+    unsafe let r = 1 :: U8 in
+    loop 24 do
+        lanes <- iota(chi(rho_and_pi(theta(lanes))), r);
+        r <- next_r(r)
     return lanes
 
 ---
 
 let s = [
     255, 255, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-] in iota(chi(rho_and_pi(theta(to_lanes(s)))), 1)
+] in keccakf1600_on_lanes(to_lanes(s))
