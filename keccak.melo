@@ -1,106 +1,123 @@
-# Recursive type mumblings
-#alias RecV = [RecV, Nat, RecV]
-#def rec(): [, Nat, ] = if n == 0 then  [rec(n), Nat, rec(n)]
+type Bit = {0..1}
+type U8 = {0..255}
+type U64 = {0..18446744073709551615}
+type LaneVec = [U8; 8] # a lane as a vector of U8s
+type LaneNat = U64 # a lane as a 64-bit Nat
+type Sheet = [LaneNat; 5]
+type StateLanes = [Sheet; 5]
+type State = [U8; 200]
 
 
-def rotl64(b: Nat, n: Nat): Nat =
-    ((b << n) | (b >> (96 - n))) ^ 115792089237316195423570985008687907853269984665640564039439137263839420088320
+# ROtate Left 64: rotates 64-bit Nat, n, b bits to the left
+def rol64(n: Nat, b: Nat) =
+    (n << (b % 64) | n >> (64 - (b % 64))) & 18446744073709551615
 
-# With constant generics
-# def range<const N: Nat>(n: N): [Nat * N] = fold [] _,acc -> acc[0]+1 : acc [0 ** N]
-# def range(n: Nat): [Nat * n] = fold [] _,acc -> acc[0]+1 : acc ([0] * n)
+# Loads a byte vector of length 8 into a 64-bit Nat
+def load64(lane_vec: LaneVec) =
+    let lane_nat = 0 :: Nat in
+    let ctr = 0 :: Nat in
+    loop 8 do
+        lane_nat <- lane_nat + (vref(lane_vec, ctr) << (ctr * 8));
+        ctr <- ctr + 1
+    return lane_nat
 
-# Get the last element in an array
-def last<const N, A>(v: [A; N]): A = let i = vlen(v)-1 in v[i]
-def tail<const N, A>(v: [A; N]): [A; N-1] = v[1..N]
-#def range<const N>(): [Nat; N] = [0] * N
-#    tail(fold acc ++ [last(acc) + 1] for i acc : [Nat; N] from [0] in ([0] * N))
-# Return a range 0..N from a vec [Any * N]
-def vrange<const N>(v: [Any; N]): [Nat; N] =
-    tail(fold acc ++ [last(acc) + 1] for i acc : [Nat; N] from [0] in v)
+# Stores a 64-bit Nat into a byte vector of length 8
+def store64(lane_nat: LaneNat) =
+    unsafe let lane_vec = [] :! [Nat; 8] in
+    let ctr = 0 :: Nat in
+    loop 8 do
+        lane_vec <- (lane_vec ++ [(lane_nat >> (ctr * 8)) % 256]) :! [Nat; 8];
+        ctr <- ctr + 1
+    return lane_vec
 
-# Number each element in an array
-def enumerate<const N, A>(v: [A; N]): [[Nat, A]; N] = zip(vrange(v), v)
-# Couple the elements of two arrays as tuples in one array
-def zip<const N, A, B>(v1: [A; N], v2: [B; N]): [[A, B]; N] =
-    [[v1[i], v2[i]] for i in vrange(v1)]
+# Converts State type to StateLane type
+def to_lanes(state: State) =
+    unsafe let accum = [] :! StateLanes in
+    let accum_inner = [] :! Sheet in
+    let x = 0 :: {0..4} in
+    let y = 0 :: {0..4} in
+    loop 5 do
+        accum_inner <- [] :! Sheet;
+        accum_inner <- loop 5 do
+            accum_inner <- (accum_inner ++ [load64(state[8 * (x + 5 * y)..8 * (x + 5 * y) + 8])]) :! Sheet;
+            y <- (y + 1) :! {0..4}
+        return accum_inner;
+        accum <- (accum ++ [accum_inner]) :! StateLanes;
+        x <- (x + 1) :! {0..4};
+    return accum
 
-# TODO Tmp replacement for actual builtin function
-def bytes32_to_nat(b: %[32]): Nat = 0
-def nat_to_bytes32(n: Nat): %[32] = x"0000000000000000000000000000000000000000000000000000000000000000"
+# Returns the C sheet which is necessary for computing the D sheet
+def c(lanes: StateLanes) =
+    unsafe let c = [] :! Sheet in
+    let x = 0 :: {0..4} in
+    loop 5 do
+        c <- (c ++ [for sheet in lanes[x] fold accum = 0 :: Nat with accum ^ sheet]) :! Sheet;
+        x <- (x + 1) :! {0..4}
+    return c
 
-# Get first 8 bytes of a Nat
-def nat_to_bytes8(n: Nat): %[8] = nat_to_bytes32(n)[0..8]
+# Returns the D sheet which is necessary for computing the θ step of the permutation
+def d(c: Sheet) =
+    unsafe let d = [] :! Sheet in
+    let x = 0 :: Nat in
+    loop 5 do
+        d <- (d ++ [vref(c, (x + 4) % 5) ^ rol64(vref(c, (x + 1) % 5), 1)]) :! Sheet;
+        x <- x + 1
+    return d
 
-# Convert 8 bytes into a right padded U256 Nat
-def bytes8_to_nat(b: %[8]): Nat =
-    bytes32_to_nat(b ++ x"000000000000000000000000000000000000000000000000")
-    #fold let i = x[0] in sum + (sum * x[1] * i*2) for x sum : Nat from 0 in enumerate(b)
+# θ step of permutation
+def theta(lanes: StateLanes) =
+    unsafe let c = c(lanes) in
+    let d = d(c) in
+    let new_lanes = [] :! StateLanes in
+    let sheet = [] :! Sheet in
+    let x = 0 :: {0..4} in
+    let y = 0 :: {0..4} in
+    loop 5 do
+        new_lanes <- (new_lanes ++ loop 5 do
+            sheet <- (sheet ++ [(lanes[x][y] ^ d[x])]) :! Sheet;
+            y <- (y + 1) :! {0..4}
+        return [sheet]) :! StateLanes;
+        x <- (x + 1) :! {0..4}
+    return new_lanes
 
-# Should really be any number of bytes to 32 bytes
-#def keccak(msg: #[]): #[32] =
-#    let lanes = init_lanes(msg) in
+# ρ and π steps of permutation
+def rho_and_pi(lanes: StateLanes) =
+    unsafe let x = 1 :: {0..4} in
+    let y = 0 :: {0..4} in
+    let temp_x = 0 :: {0..4} in
+    let t = 0 :: {0..24} in
+    let curr_lane = lanes[x][y] in
+    let temp_lane = 0 :! LaneNat in
+    loop 24 do
+        temp_x <- x;
+        x <- y;
+        y <- ((2 * temp_x + 3 * y) % 5) :! {0..4};
+        temp_lane <- curr_lane;
+        curr_lane <- lanes[x][y];
+        lanes <- lanes[x => lanes[x][y => rol64(temp_lane, (t + 1) * (t + 2) / 2) :! LaneNat]];
+        t <- (t + 1) :! {0..23}
+    return lanes
 
-# map a 2d (x,y) coordinate of a state vector to 1d index
-def lane_idx(x: Nat, y: Nat): Nat = x + (y * 5)
+# Returns the T sheet which is necessary for computing the χ step of the permutation
+def t(lanes: StateLanes, y: {0..4}) =
+    [sheet[y] for sheet in lanes]
 
-alias State = %[200]
-#alias Lanes = [U256; 25] #[%[8]; 8]
-alias Lanes = [[Nat; 5]; 5] #[%[8]; 8]
+# χ step of permutation
+def chi(lanes: StateLanes) =
+    unsafe let y = 0 :: {0..4} in
+    let x = 0 :: {0..4} in
+    let t = [] :! Sheet in
+    loop 5 do
+        t <- t(lanes, y);
+        lanes <- loop 5 do
+            lanes <- lanes[x => lanes[x][y => (t[x] ^ ((~vref(t, (x + 1) % 5)) & vref(t, (x + 2) % 5))) :! LaneNat]];
+            x <- (x + 1) :! {0..4}
+        return lanes;
+        y <- (y + 1) :! {0..4}
+    return lanes
 
-# Initialize a new state of zeros
-#def new_state(): State = [0] * 200
-def new_state(): State = x"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+---
 
-def state_permute_round(lanes: Lanes, round: Nat): Lanes =
-    # θ
-    let c = [lanes[x][0] ^ lanes[x][1] ^ lanes[x][2] ^ lanes[x][3] ^ lanes[x][4] for x in vrange([0] * 5)] in
-    let d = [c[(x+4)%5] ^ rotl64(c[(x+1)%5], 1) for x in vrange([0] * 5)] in
-    let lanes = [[lanes[x][y]^d[x] for y in range(5)] for x in vrange([0] * 5)] in
-
-    # ρ and π
-    fold let x = acc[0] in
-         let y = acc[1] in
-         let current = acc[2] in
-         let lanes = acc[3] in
-         [y,
-          # TODO top one is correct
-          (2*x+3*y) % 5,
-          lanes[x][y],
-          # TODO make sure div is floor
-          lanes_from(lanes, x, y, rotl64(current, (t+1)*(t+2)/2))]
-         for t acc : [Nat, Nat, Nat, Lanes]
-         from [1, 0, lanes[x][y], lanes]
-         in vrange([0] * 24)
-
-def keccakf1600_on_lanes(lanes: Lanes) =
-    fold state_permute_round(lanes, round) for round lanes : Lanes from lanes in vrange([0] * 24)
-
-def lanes_to_state(lanes: Lanes): State = new_state()
-    # TODO the commented is correct, the line below is wrong but compiles
-    #[[state[8*(x+5*y)..8*(x+5*y)+8] = nat_to_bytes8(lanes[x][y]) for y in vrange([0] * 5)] for x in vrange([0] * 5)]
-    #fold (fold state ++ nat_to_bytes8(lanes[x][y]) for y state : State from outer_state in vrange([0] * 5))
-         #for x outer_state : State from x"" in vrange([0] * 5)
-    #[[state[0..8] = nat_to_bytes8(lanes[x][y]) for y in vrange([0] * 5)] for x in vrange([0] * 5)]
-
-def state_to_lanes(state: State): Lanes =
-    # TODO the commented is correct, the line below is wrong but compiles
-    #let lanes = [[bytes_to_u64(state[8*(x+5*y):8*(x+5*y)+8]) for y in vrange([0] * 5)] for x in vrange([0] * 5)] in
-    [[let s = state[0..8] in bytes8_to_nat(s) for y in vrange([0] * 5)] for x in vrange([0] * 5)]
-
-def keccakf1600(state: State): State =
-    let lanes = state_to_lanes(state) in
-    let lanes = keccakf1600_on_lanes(lanes) in
-    lanes_to_state(lanes)
-
-# TODO doesn't work in racket melo, also perhaps this should be a builtin fn
-# which uses melvm vset.
-#def update<const N, A>(v: [A; N], idx: Nat, x: A): [A; N] = v[0..idx] ++ x ++ v[idx+1..N]
-def lanes_from(lanes: Lanes, x: Nat, y: Nat, elem: Nat): Lanes =
-    # TODO check that x and y are <5
-    let new_lane = v[x][0..y] ++ elem ++ v[x][y+1..5] in
-        v[0..x] ++ new_lane ++ v[x+1..5]
-
-#def init_lanes(state: %[]): [[Nat * 5] * 5] =
-    #[[let ii = 8 * lane_idx(i,j) in state[ii..ii+8] for i in [1,2,3,4,5]] for j in [1,2,3,4,5]]
-    #[[let ii = 8 * lane_idx(i,j) in ii for i in 0..5] for j in 0..5]
+let s = [
+    255, 255, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+] in chi(rho_and_pi(theta(to_lanes(s))))
