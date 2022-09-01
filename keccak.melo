@@ -1,4 +1,5 @@
 type Bit = {0..1}
+type Byte = {0..7}
 type U8 = {0..255}
 type U64 = {0..18446744073709551615}
 type LaneVec = [U8; 8] # a lane as a vector of U8s
@@ -139,8 +140,25 @@ def keccakf1600_on_lanes(lanes: StateLanes) =
         r <- next_r(r)
     return lanes
 
+# Keccak-f1600 permutation on state
+def keccakf1600(state: State) =
+    unsafe let lanes = keccakf1600_on_lanes(to_lanes(state)) in
+    let x = 0 :: {0..4} in
+    let y = 0 :: {0..4} in
+    let b = 0 :: Byte in
+    loop 5 do
+        state <- loop 5 do
+            state <- loop 8 do
+                state <- state[8 * (x + 5 * y) + b => vref(store64(lanes[x][y]), b) :! U8];
+                b <- (b + 1) :! Byte
+            return state;
+            y <- (y + 1) :! {0..4}
+        return state;
+        x <- (x + 1) :! {0..4}
+    return state
+
 ---
 
 let s = [
     255, 255, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-] in keccakf1600_on_lanes(to_lanes(s))
+] in keccakf1600(s)
