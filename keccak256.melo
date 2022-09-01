@@ -94,7 +94,7 @@ def rho_and_pi(lanes: StateLanes) =
         y <- ((2 * temp_x + 3 * y) % 5) :! {0..4};
         temp_lane <- curr_lane;
         curr_lane <- lanes[x][y];
-        lanes <- lanes[x => lanes[x][y => [rol64(temp_lane, (t + 1) * (t + 2) / 2)] :! LaneNat]];
+        lanes <- lanes[x => lanes[x][y => rol64(temp_lane, (t + 1) * (t + 2) / 2) :! LaneNat]];
         t <- (t + 1) :! {0..23}
     return lanes
 
@@ -106,10 +106,11 @@ def t(lanes: StateLanes, y: {0..4}) =
 def chi(lanes: StateLanes) =
     unsafe let y = 0 :: {0..4} in
     let x = 0 :: {0..4} in
-    let t = t(lanes, y) in
+    let t = [] :! Sheet in
     loop 5 do
+        t <- t(lanes, y);
         lanes <- loop 5 do
-            lanes <- lanes[x => lanes[x][y => (t[x] ^ ((~vref(t, (x + 1) % 5)) & vref(t, (x + 2) % 5))) :! {0..4}]];
+            lanes <- lanes[x => lanes[x][y => (t[x] ^ ((~vref(t, (x + 1) % 5)) & vref(t, (x + 2) % 5))) :! LaneNat]];
             x <- (x + 1) :! {0..4}
         return lanes;
         y <- (y + 1) :! {0..4}
@@ -119,5 +120,4 @@ def chi(lanes: StateLanes) =
 
 let s = [
     255, 255, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-] in #rho_and_pi(theta(to_lanes(s)))
-    chi(to_lanes(s))
+] in chi(rho_and_pi(theta(to_lanes(s))))
