@@ -30,7 +30,7 @@ def store64(lane_nat: LaneNat) =
         ctr <- ctr + 1
     return lane_vec
 
-# Converts State type to StateLane type
+# Converts State type to StateLanes type
 def to_lanes(state: State) =
     unsafe let accum = [] :! StateLanes in
     let accum_inner = [] :! Sheet in
@@ -116,8 +116,16 @@ def chi(lanes: StateLanes) =
         y <- (y + 1) :! {0..4}
     return lanes
 
+def iota(lanes: StateLanes, r: {0..255}) =
+    unsafe let j = 0 :: Nat in
+    loop 7 do
+        r <- (((r << 1) ^ ((r >> 7) * 113)) % 256) :! {0..255};
+        lanes <- if r & 2 then lanes[0 => lanes[0][0 => (lanes[0][0] ^ (1 << ((1 << j) - 1))) :! LaneNat]] else lanes;
+        j <- j + 1
+    return lanes
+
 ---
 
 let s = [
     255, 255, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-] in chi(rho_and_pi(theta(to_lanes(s))))
+] in iota(chi(rho_and_pi(theta(to_lanes(s)))), 1)
