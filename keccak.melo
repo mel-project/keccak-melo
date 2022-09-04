@@ -161,7 +161,7 @@ def min(x: Nat, y: Nat): Nat =
     if x > y then y else x
 
 # Keccak sponge function which has as a building block the Keccak-f1600 permutation
-def keccak<$r, $n>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n]) =
+def keccak<$r, $n, $o>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n], delim_suffix: U8, output_len: {$o}) =
     unsafe if !(capacity + bitrate == 1600) then fail! else
     let state = [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -180,8 +180,8 @@ def keccak<$r, $n>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n]) =
     let offset = 0 :: {0..$n} in
     let blk_size = 0 :: {0..$r * 8} in
     let i = 0 :: {0..199} in
-    loop $n do
-        blk_size <- min(input_len - offset, byterate) :! {0..$r * 8};
+    let state_and_blksize = loop $n do
+        blk_size <- if offset < input_len then min(input_len - offset, byterate) :! {0..$r * 8} else blk_size;
         state <- if offset < input_len
             then loop $r * 8 do
                 state <- if i < blk_size then state[i => (vref(state, i) ^ vref(input, offset + i)) :! U8] else state;
@@ -189,12 +189,30 @@ def keccak<$r, $n>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n]) =
             return state
             else state;
         offset <- if offset < input_len then (offset + blk_size) :! {0..$n} else offset;
-        state <- if blk_size == byterate then keccak_f1600(state) else state;
-        blk_size <- if blk_size == byterate then 0 else blk_size
-    return state
-
----
-
-let input = [
-    255, 255, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 47, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-] in keccak(16, 1584, input)
+        state <- if offset < input_len
+            then if blk_size == byterate then keccak_f1600(state) else state
+            else state;
+        blk_size <- if offset < input_len
+            then if blk_size == byterate then 0 else blk_size
+            else blk_size
+    return [state, blk_size] in
+    let state = state_and_blksize[0] in
+    let blk_size = state_and_blksize[1] in
+    let state = state[blk_size :! {0..199} => (vref(state, blk_size) ^ delim_suffix) :! U8] in
+    let state = if !(delim_suffix & 128 == 0) && (blk_size == byterate - 1) then keccak_f1600(state) else state in
+    let state = state[(byterate - 1) :! {0..199} => (vref(state, byterate - 1) ^ 128) :! U8] in
+    let state = keccak_f1600(state) in
+    let output = [] :! [U8; $o] in
+    let accum = [] :! [U8; $r] in
+    let i = 0 :: {0..$r} in
+    loop $o do
+        accum <- [] :! [U8; $r];
+        blk_size <- if output_len > 0 then min(output_len, byterate) :! {0..$r} else blk_size;
+        output <- if output_len > 0
+            then (output ++ loop $o do
+                accum <- if i < blk_size then (accum ++ [vref(state, i)]) :! [U8; $r] else accum;
+                i <- (i + 1) :! {0..$r}
+            return accum) :! [U8; $o]
+            else output;
+        output_len <- if output_len > 0 then (output_len - blk_size) :! {$o} else output_len;
+    return output
