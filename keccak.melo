@@ -211,3 +211,57 @@ def keccak<$r, $n, $o>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n], 
             else output;
         output_len <- if output_len > 0 then (output_len - blk_size) :! {$o} else output_len;
     return output
+
+
+### The first six of the following interfaces belong to the SHA-3 family of cryptographic hash
+### algorithms as standardized by the NIST on August 5, 2015.
+
+# Arbitrary output length hashing function with 128 bits of security
+def shake128<$n, $o>(input: [U8; $n], output_len: {$o}) =
+    keccak(1344, 256, input, 31, output_len)
+
+# Arbitrary output length hashing function with 256 bits of security
+def shake256<$n, $o>(input: [U8; $n], output_len: {$o}) =
+    keccak(1088, 512, input, 31, output_len)
+
+# 28-byte output SHA-3 hashing function
+def sha3_224<$n>(input: [U8; $n]) =
+    keccak(1152, 448, input, 6, 28)
+
+# 32-byte output SHA-3 hashing function
+def sha3_256<$n>(input: [U8; $n]) =
+    keccak(1088, 512, input, 6, 32)
+
+# 48-byte output SHA-3 hashing function
+def sha3_384<$n>(input: [U8; $n]) =
+    keccak(832, 768, input, 6, 48)
+
+# 64-byte output SHA-3 hashing function
+def sha3_512<$n>(input: [U8; $n]) =
+    keccak(576, 1024, input, 6, 64)
+
+
+### The last 5 interfaces use the Keccak hashing algorithm as originally submitted to the NIST
+### competition before the padding changes in 2015. Ethereum was created in 2013 and as such still
+### uses this version of Keccak; for this reason, keccak256() is re-defined as eth_hash(), for
+### convenience and clarity.
+
+# 28-byte output Keccak hashing function
+def keccak224<$n>(input: [U8; $n]) =
+    keccak(1152, 448, input, 1, 28)
+
+# 32-byte output Keccak hashing function
+def keccak256<$n>(input: [U8; $n]) =
+    keccak(1088, 512, input, 1, 32)
+
+# 48-byte output Keccak hashing function
+def keccak384<$n>(input: [U8; $n]) =
+    keccak(832, 768, input, 1, 48)
+
+# 64-byte output Keccak hashing function
+def keccak512<$n>(input: [U8; $n]) =
+    keccak(576, 1024, input, 1, 64)
+
+# Re-definition of keccak256(), the hash function used by the Ethereum network
+def eth_hash<$n>(input: [U8; $n]) =
+    keccak256(input)
