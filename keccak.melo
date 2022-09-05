@@ -18,7 +18,7 @@ def load64(lane_vec: LaneVec) =
 
 # Stores a 64-bit Nat into a byte vector of length 8
 def store64(lane_nat: LaneNat) =
-    for i in range(8) fold lane_vec = [] :: [Nat;] with (lane_vec ++ [(lane_nat >> (i * 8)) % 256] :: [Nat;])
+    for i in range(8) fold lane_vec = [] :: [Nat;] with lane_vec ++ [(lane_nat >> (i * 8)) % 256] :: [Nat;]
 
 # Converts State type to StateLanes type
 def to_lanes(state: State) =
@@ -38,21 +38,11 @@ def to_lanes(state: State) =
 
 # Returns the C sheet which is necessary for computing the D sheet
 def c(lanes: StateLanes) =
-    unsafe let c = [] :! Sheet in
-    let x = 0 :: {0..4} in
-    loop 5 do
-        c <- (c ++ [for sheet in lanes[x] fold accum = 0 :: Nat with accum ^ sheet]) :! Sheet;
-        x <- (x + 1) :! {0..4}
-    return c
+        unsafe for x in range(5) fold c = [] :! Sheet with (c ++ [for sheet in lanes[x :! {0..4}] fold accum = 0 :: LaneNat with (accum ^ sheet) :! LaneNat]) :! Sheet
 
 # Returns the D sheet which is necessary for computing the θ step of the permutation
 def d(c: Sheet) =
-    unsafe let d = [] :! Sheet in
-    let x = 0 :: Nat in
-    loop 5 do
-        d <- (d ++ [vref(c, (x + 4) % 5) ^ rol64(vref(c, (x + 1) % 5), 1)]) :! Sheet;
-        x <- x + 1
-    return d
+        unsafe for x in range(5) fold d = [] :! Sheet with (d ++ [vref(c, (x + 4) % 5) ^ rol64(vref(c, (x + 1) % 5), 1)]) :! Sheet
 
 # θ step of permutation
 def theta(lanes: StateLanes) =
