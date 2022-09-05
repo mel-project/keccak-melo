@@ -14,21 +14,11 @@ def rol64(n: Nat, b: Nat) =
 
 # Loads a byte vector of length 8 into a 64-bit Nat
 def load64(lane_vec: LaneVec) =
-    let lane_nat = 0 :: Nat in
-    let ctr = 0 :: Nat in
-    loop 8 do
-        lane_nat <- lane_nat + (vref(lane_vec, ctr) << (ctr * 8));
-        ctr <- ctr + 1
-    return lane_nat
+    for byte in enumerate(lane_vec) fold lane_nat = 0 :: Nat with lane_nat + (byte[1] << (byte[0] * 8))
 
 # Stores a 64-bit Nat into a byte vector of length 8
 def store64(lane_nat: LaneNat) =
-    unsafe let lane_vec = [] :! [Nat; 8] in
-    let ctr = 0 :: Nat in
-    loop 8 do
-        lane_vec <- (lane_vec ++ [(lane_nat >> (ctr * 8)) % 256]) :! [Nat; 8];
-        ctr <- ctr + 1
-    return lane_vec
+    for i in range(8) fold lane_vec = [] :: [Nat;] with (lane_vec ++ [(lane_nat >> (i * 8)) % 256] :: [Nat;])
 
 # Converts State type to StateLanes type
 def to_lanes(state: State) =
