@@ -19,7 +19,7 @@ August 5, 2015.
 
 `sha3_512<$n>(input: [U8; $n])`: 64-byte output SHA-3 hashing function
 
-### The last 4 interfaces use the Keccak hashing algorithm as originally submitted to the NIST competition, before the padding changes:
+### The last four interfaces use the Keccak hashing algorithm as originally submitted to the NIST competition, before the padding changes:
 
 `keccak224<$n>(input: [U8; $n])`: 28-byte output Keccak hashing function
 
@@ -28,3 +28,9 @@ August 5, 2015.
 `keccak384<$n>(input: [U8; $n])`: 48-byte output Keccak hashing function
 
 `keccak512<$n>(input: [U8; $n])`: 64-byte output Keccak hashing function
+
+## Building
+To build and run this covenant, simply install Melodeon following the instructions in the
+[guide](https://guide.melodeonlang.org/2_getting_started.html) and then `cd` into the folder
+containing `keccak.melo` and run `melorun -i keccak.melo`. This will activate the Melodeon REPL and
+will allow you to use the functions defined in this repo.
