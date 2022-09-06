@@ -199,7 +199,7 @@ def v2b_256(vec: [U8; 32]) =
     n2b(for byte in enumerate(vec) fold accum = 0 :: Nat with accum + (byte[1] << (8 * (31 - byte[0]))))
 
 # Converts byte vectors of arbitrary length into byte strings
-def v2b<$n>(vec: [U8; $n]) =
+def v2b<$n>(bvec: [U8; $n]) =
     unsafe if $n == 0 then x"" else
     let n2b_8 = [
         x"00", x"01", x"02", x"03", x"04", x"05", x"06", x"07", x"08", x"09", x"0a", x"0b", x"0c", x"0d", x"0e", x"0f",
@@ -219,7 +219,11 @@ def v2b<$n>(vec: [U8; $n]) =
         x"e0", x"e1", x"e2", x"e3", x"e4", x"e5", x"e6", x"e7", x"e8", x"e9", x"ea", x"eb", x"ec", x"ed", x"ee", x"ef",
         x"f0", x"f1", x"f2", x"f3", x"f4", x"f5", x"f6", x"f7", x"f8", x"f9", x"fa", x"fb", x"fc", x"fd", x"fe", x"ff",
     ] in
-    for byte in vec fold byte_str = x"" :! %[$n] with (byte_str ++ n2b_8[byte]) :! %[$n]
+    for byte in bvec fold bstr = x"" :! %[$n] with (bstr ++ n2b_8[byte]) :! %[$n]
+
+# Converts byte strings of arbitrary length > 0 into byte vectors
+def b2v<$n>(str: %[$n + 1]) =
+    unsafe for i in range($n + 1) fold bvec = [] :! [U8; $n + 1] with (bvec ++ [str[i :! {0..$n}]]) :! [U8; $n + 1]
 
 
 ## The first six of the following interfaces belong to the SHA-3 family of cryptographic hash
