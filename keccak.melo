@@ -194,9 +194,11 @@ def keccak<$r, $n, $o>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n], 
         output_len <- if output_len > 0 then (output_len - blk_size) :! {$o} else output_len;
     return output
 
-def v2b_32<$n>(vec: [U8; $n]) =
+# Converts byte vectors of length 32 into byte strings
+def v2b_256(vec: [U8; 32]) =
     n2b(for byte in enumerate(vec) fold accum = 0 :: Nat with accum + (byte[1] << (8 * (31 - byte[0]))))
 
+# Converts byte vectors of arbitrary length into byte strings
 def v2b<$n>(vec: [U8; $n]) =
     unsafe if $n == 0 then x"" else
     let n2b_8 = [
@@ -237,7 +239,7 @@ def sha3_224<$n>(input: [U8; $n]) =
 
 # 32-byte output SHA-3 hashing function
 def sha3_256<$n>(input: [U8; $n]) =
-    v2b_32(keccak(1088, 512, input, 6, 32))
+    v2b_256(keccak(1088, 512, input, 6, 32))
 
 # 48-byte output SHA-3 hashing function
 def sha3_384<$n>(input: [U8; $n]) =
@@ -258,7 +260,7 @@ def keccak224<$n>(input: [U8; $n]) =
 
 # 32-byte output Keccak hashing function
 def keccak256<$n>(input: [U8; $n]) =
-    v2b_32(keccak(1088, 512, input, 1, 32))
+    v2b_256(keccak(1088, 512, input, 1, 32))
 
 # 48-byte output Keccak hashing function
 def keccak384<$n>(input: [U8; $n]) =
