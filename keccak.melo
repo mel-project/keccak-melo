@@ -157,6 +157,7 @@ def keccak<$r, $n, $o>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n], 
     let offset = 0 :: {0..$n} in
     let blk_size = 0 :: {0..$r * 8} in
     let i = 0 :: {0..199} in
+    let offset_state_blksize = [] :! [{0..$n}, State, {0..$r * 8}] in
     let state_and_blksize = loop $n do
         blk_size <- if offset < input_len then min(input_len - offset, byterate) :! {0..$r * 8} else blk_size;
         state <- if offset < input_len
@@ -165,13 +166,16 @@ def keccak<$r, $n, $o>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n], 
                 i <- (i + 1) :! {0..199}
             return state
             else state;
-        offset <- if offset < input_len then (offset + blk_size) :! {0..$n} else offset;
-        state <- if offset < input_len
-            then if blk_size == byterate then keccak_f1600(state) else state
-            else state;
-        blk_size <- if offset < input_len
-            then if blk_size == byterate then 0 else blk_size
-            else blk_size
+        offset_state_blksize <- if offset < input_len 
+            then loop 1 do
+                offset <- (offset + blk_size) :! {0..$n};
+                state <- if blk_size == byterate then keccak_f1600(state) else state;
+                blk_size <- if blk_size == byterate then 0 else blk_size
+            return [offset] ++ [state] ++ [blk_size]
+            else [offset] ++ [state] ++ [blk_size];
+        offset <- offset_state_blksize[0];
+        state <- offset_state_blksize[1];
+        blk_size <- offset_state_blksize[2]
     return [state, blk_size] in
     let state = state_and_blksize[0] in
     let blk_size = state_and_blksize[1] in

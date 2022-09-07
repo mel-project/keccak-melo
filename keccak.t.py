@@ -1,5 +1,5 @@
 # This project is a differential fuzz test of the Melodeon Keccak implementation with
-# the reference implementation created by Gilles Van Assche, of the Keccak team.
+# the Python reference implementation created by Gilles Van Assche, of the Keccak team:
 # https://github.com/XKCP/XKCP/blob/master/Standalone/CompactFIPS202/Python/CompactFIPS202.py
 #
 # The Python implementation has not been altered, only the original Keccak functions have been
