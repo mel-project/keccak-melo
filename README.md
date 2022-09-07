@@ -34,3 +34,8 @@ To build and run this covenant, simply install Melodeon following the instructio
 [guide](https://guide.melodeonlang.org/2_getting_started.html) and then `cd` into the folder
 containing `keccak.melo` and run `melorun -i keccak.melo`. This will activate the Melodeon REPL and
 will allow you to use the functions defined in this repo.
+
+## Testing
+There is a python file in this repo named `keccak.t.py` which is used to differentially fuzz test
+the Melodeon implementation of Keccak with a reference implementation written in Python. Use the
+command `python keccak.t.py` to run this test.

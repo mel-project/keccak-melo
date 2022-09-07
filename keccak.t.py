@@ -103,16 +103,16 @@ def SHA3_384(inputBytes):
 def SHA3_512(inputBytes):
     return Keccak(576, 1024, inputBytes, 0x06, 512//8)
 
-def KECCAK_224(inputBytes):
+def KECCAK224(inputBytes):
     return Keccak(1152, 448, inputBytes, 0x01, 224//8)
 
-def KECCAK_256(inputBytes):
+def KECCAK256(inputBytes):
     return Keccak(1088, 512, inputBytes, 0x01, 256//8)
 
-def KECCAK_384(inputBytes):
+def KECCAK384(inputBytes):
     return Keccak(832, 768, inputBytes, 0x01, 384//8)
 
-def KECCAK_512(inputBytes):
+def KECCAK512(inputBytes):
     return Keccak(576, 1024, inputBytes, 0x01, 512//8)
 
 FUNCS = [
@@ -137,24 +137,24 @@ def mapFuncs(index, bytes):
         case 3:
             return SHA3_512(bytes)
         case 4:
-            return KECCAK_224(bytes)
+            return KECCAK224(bytes)
         case 5:
-            return KECCAK_256(bytes)
+            return KECCAK256(bytes)
         case 6:
-            return KECCAK_384(bytes)
+            return KECCAK384(bytes)
         case 7:
-            return KECCAK_512(bytes)
+            return KECCAK512(bytes)
 
 def randBytes():
-    MAX = 255
     numBytes = random.randint(0, 2048)
-    return bytearray([random.randint(0, MAX) for i in range(numBytes)])
+    return bytearray([random.randint(0, 255) for i in range(numBytes)])
 
 def bytesToString(bytes):
+    bytes = bytearray.fromhex(bytes)
     output = '['
 
-    for num in bytes:
-        output += str(int(num)) + ', '
+    for byte in bytes:
+        output += str(int(byte)) + ', '
 
     output += ']'
     return output
@@ -170,7 +170,7 @@ def DIFFERENTIAL_TEST(runs = 256):
         func = FUNCS[index]
         data = randBytes()
 
-        command = func + '(' + bytesToString(data) + ')'
+        command = func + '(' + bytesToString(data.hex()) + ')'
         child.sendline(command)
         child.expect('\\r\\n\\r\\n')
         output = child.before.decode('ascii')
@@ -186,6 +186,6 @@ def DIFFERENTIAL_TEST(runs = 256):
             print(Fore.RED + 'Discrepency:\n')
             print('{:7} {:8}: {}'.format('Melodeon', func, meloHash))
             print('{:7} {:8}: {}\n'.format('Python', func, pythonHash))
-            print('Data: ', data.hex())
+            print('Input bytes: ', len(data), '\tData: ', data.hex())
             print(Style.RESET_ALL)
             break
