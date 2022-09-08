@@ -37,6 +37,7 @@ will allow you to use the functions defined in this repo.
 
 ## Testing
 There is a python file in this repo named `keccak.t.py` which is used to differentially fuzz test
-the Melodeon implementation of Keccak with a reference implementation written in Python. Use the
-command `python -i keccak.t.py` to load the program into an interactive Python REPL and use the
+the Melodeon implementation of Keccak with a reference implementation written in Python. Install
+the dependencies using `python3.10 -m pip install colorama pexpect`, use the command
+`python -i keccak.t.py` to load the program into an interactive Python REPL, and use the
 `DIFFERENTIAL_TEST()` function to run this test.
