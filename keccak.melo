@@ -180,7 +180,7 @@ def keccak<$r, $n, $o>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n], 
     let state = state_and_blksize[0] in
     let blk_size = state_and_blksize[1] in
     let state = state[blk_size :! {0..199} => (state[blk_size :! {0..199}] ^ delim_suffix) :! U8] in
-    let state = if !(delim_suffix & 128 == 0) && (blk_size == byterate - 1) then keccak_f1600(state) else state in
+    let state = if !((delim_suffix & 128) == 0) && (blk_size == byterate - 1) then keccak_f1600(state) else state in
     let state = state[(byterate - 1) :! {0..199} => (state[(byterate - 1) :! {0..199}] ^ 128) :! U8] in
     let state = keccak_f1600(state) in
     let output = [] :! [U8; $o] in
