@@ -134,6 +134,7 @@ def keccak_f1600(state: State) =
         x <- (x + 1) :! {0..4}
     return state
 
+# Returns the smaller of two Nats
 def min(x: Nat, y: Nat): Nat = 
     if x > y then y else x
 
@@ -225,10 +226,11 @@ def v2b<$n>(bvec: [U8; $n]) =
     ] in
     for byte in bvec fold bstr = x"" :! %[$n] with (bstr ++ n2b_8[byte]) :! %[$n]
 
-# Converts byte strings of arbitrary length > 0 into byte vectors
-def b2v<$n>(str: %[$n + 1]) =
-    unsafe for i in range($n + 1) fold bvec = [] :! [U8; $n + 1] with (bvec ++ [str[i :! {0..$n}]]) :! [U8; $n + 1]
-
+# Converts byte strings of arbitrary length into byte vectors
+def b2v<$n>(bstr: %[$n]) =
+    unsafe if $n == 0
+        then [] :! [U8; $n]
+        else for i in range($n) fold bvec = [] :! [U8; $n] with (bvec ++ [(bstr :! %[$n + 1])[i :! {0..$n}]]) :! [U8; $n]
 
 ## The first six of the following interfaces belong to the SHA-3 family of cryptographic hash
 ## algorithms as standardized by the NIST on August 5, 2015.

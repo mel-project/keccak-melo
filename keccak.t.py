@@ -10,6 +10,17 @@ import pexpect
 import random
 import re
 
+FUNCS = [
+    'sha3_224',
+    'sha3_256',
+    'sha3_384',
+    'sha3_512',
+    'keccak224',
+    'keccak256',
+    'keccak384',
+    'keccak512'
+]
+
 def ROL64(a, n):
     return ((a >> (64-(n%64))) + (a << (n%64))) % (1 << 64)
 
@@ -114,17 +125,6 @@ def KECCAK384(inputBytes):
 
 def KECCAK512(inputBytes):
     return Keccak(576, 1024, inputBytes, 0x01, 512//8)
-
-FUNCS = [
-    'sha3_224',
-    'sha3_256',
-    'sha3_384',
-    'sha3_512',
-    'keccak224',
-    'keccak256',
-    'keccak384',
-    'keccak512'
-]
 
 def mapFuncs(index, bytes):
     match index:
