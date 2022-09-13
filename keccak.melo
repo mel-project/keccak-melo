@@ -1,4 +1,3 @@
-type Bit = {0..1}
 type Byte = {0..7}
 type U8 = {0..255}
 type U64 = {0..18446744073709551615}
@@ -228,9 +227,7 @@ def v2b<$n>(bvec: [U8; $n]) =
 
 # Converts byte strings of arbitrary length into byte vectors
 def b2v<$n>(bstr: %[$n]) =
-    unsafe if $n == 0
-        then [] :! [U8; $n]
-        else for i in range($n) fold bvec = [] :! [U8; $n] with (bvec ++ [(bstr :! %[$n + 1])[i :! {0..$n}]]) :! [U8; $n]
+    unsafe for i in range($n) fold bvec = [] :! [U8; $n] with (bvec ++ [(bstr :! %[$n + 1])[i :! {0..$n}]]) :! [U8; $n]
 
 ## The first six of the following interfaces belong to the SHA-3 family of cryptographic hash
 ## algorithms as standardized by the NIST on August 5, 2015.
