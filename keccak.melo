@@ -1,3 +1,17 @@
+provide shake128
+provide shake256
+provide sha3_224
+provide sha3_256
+provide sha3_384
+provide sha3_512
+provide keccak224
+provide keccak256
+provide keccak384
+provide keccak512
+provide b2v
+provide v2b
+provide v2b_256
+
 type U8 = {0..255}
 type U64 = {0..18446744073709551615}
 type LaneVec = [U8; 8] # a lane as a vector of U8s
@@ -233,27 +247,27 @@ def b2v<$n>(bstr: %[$n]) =
 
 # Extendable output function (XOF) with 128 bits of security
 def shake128<$n, $o>(input: [U8; $n], output_len: {$o}) =
-    v2b(keccak(1344, 256, input, 31, output_len))
+    keccak(1344, 256, input, 31, output_len)
 
 # Extendable output function (XOF) with 256 bits of security
 def shake256<$n, $o>(input: [U8; $n], output_len: {$o}) =
-    v2b(keccak(1088, 512, input, 31, output_len))
+    keccak(1088, 512, input, 31, output_len)
 
 # 28-byte output SHA-3 hashing function
 def sha3_224<$n>(input: [U8; $n]) =
-    v2b(keccak(1152, 448, input, 6, 28))
+    keccak(1152, 448, input, 6, 28)
 
 # 32-byte output SHA-3 hashing function
 def sha3_256<$n>(input: [U8; $n]) =
-    v2b_256(keccak(1088, 512, input, 6, 32))
+    keccak(1088, 512, input, 6, 32)
 
 # 48-byte output SHA-3 hashing function
 def sha3_384<$n>(input: [U8; $n]) =
-    v2b(keccak(832, 768, input, 6, 48))
+    keccak(832, 768, input, 6, 48)
 
 # 64-byte output SHA-3 hashing function
 def sha3_512<$n>(input: [U8; $n]) =
-    v2b(keccak(576, 1024, input, 6, 64))
+    keccak(576, 1024, input, 6, 64)
 
 
 ## The last 4 interfaces use the Keccak hashing algorithm as originally submitted to the NIST
@@ -262,16 +276,16 @@ def sha3_512<$n>(input: [U8; $n]) =
 
 # 28-byte output Keccak hashing function
 def keccak224<$n>(input: [U8; $n]) =
-    v2b(keccak(1152, 448, input, 1, 28))
+    keccak(1152, 448, input, 1, 28)
 
 # 32-byte output Keccak hashing function
 def keccak256<$n>(input: [U8; $n]) =
-    v2b_256(keccak(1088, 512, input, 1, 32))
+    keccak(1088, 512, input, 1, 32)
 
 # 48-byte output Keccak hashing function
 def keccak384<$n>(input: [U8; $n]) =
-    v2b(keccak(832, 768, input, 1, 48))
+    keccak(832, 768, input, 1, 48)
 
 # 64-byte output Keccak hashing function
 def keccak512<$n>(input: [U8; $n]) =
-    v2b(keccak(576, 1024, input, 1, 64))
+    keccak(576, 1024, input, 1, 64)
