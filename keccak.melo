@@ -12,25 +12,35 @@ provide b2v
 provide v2b
 provide v2b_256
 
-type U8 = {0..255}
-type U64 = {0..18446744073709551615}
-type LaneVec = [U8; 8] # a lane as a vector of U8s
+type LaneStr = %[8] # a lane as a bytestring with length 8
 type LaneNat = U64 # a lane as a 64-bit Nat
 type Sheet = [LaneNat; 5]
 type StateLanes = [Sheet; 5]
-type State = [U8; 200]
+type State = %[200]
+type U8 = {0..255}
+type U64 = {0..18446744073709551615}
 
 # ROtate Left 64: rotates 64-bit Nat, n, b bits to the left
 def rol64(n: Nat, b: Nat) =
     (n << (b % 64) | n >> (64 - (b % 64))) & 18446744073709551615
 
 # Loads a byte vector of length 8 into a 64-bit Nat
-def load64(lane_vec: LaneVec) =
-    for byte in enumerate(lane_vec) fold lane_nat = 0 :: Nat with lane_nat + (byte[1] << (byte[0] * 8))
+def load64(lane_str: LaneStr) =
+    unsafe let idx = 0 :: {0..7} in
+    let lane_nat = 0 :: LaneNat in 
+    loop 8 do
+        lane_nat <- (lane_nat + (lane_str[idx] << (idx * 8))) :! LaneNat;
+        idx <- (idx + 1) :! {0..7}
+    return lane_nat
 
-# Stores a 64-bit Nat into a byte vector of length 8
+# Stores a 64-bit Nat into a bytestring of length 8
 def store64(lane_nat: LaneNat) =
-    for i in range(8) fold lane_vec = [] :: [Nat;] with lane_vec ++ [(lane_nat >> (i * 8)) % 256] :: [Nat;]
+    unsafe let idx = 0 :: {0..7} in
+    let lane_str = "" :! LaneStr in 
+    loop 8 do
+        lane_str <- (lane_str ++ n2b_8(((lane_nat >> (idx * 8)) % 256) :! U8)) :! LaneStr;
+        idx <- (idx + 1) :! {0..7}
+    return lane_str
 
 # Converts State type to StateLanes type
 def to_lanes(state: State) =
@@ -41,7 +51,7 @@ def to_lanes(state: State) =
     loop 5 do
         accum_inner <- [] :! Sheet;
         accum_inner <- loop 5 do
-            accum_inner <- (accum_inner ++ [load64(state[8 * (x + 5 * y)..8 * (x + 5 * y) + 8])]) :! Sheet;
+            accum_inner <- (accum_inner ++ [load64(unsafe_bslice(state, 8 * (x + 5 * y), 8 * (x + 5 * y) + 8) :! %[8])]) :! Sheet;
             y <- (y + 1) :! {0..4}
         return accum_inner;
         accum <- (accum ++ [accum_inner]) :! StateLanes;
@@ -138,7 +148,7 @@ def keccak_f1600(state: State) =
     loop 5 do
         state <- loop 5 do
             state <- loop 8 do
-                state <- state[8 * (x + 5 * y) + b => vref(store64(lanes[x][y]), b) :! U8];
+                state <- bupdate(state, 8 * (x + 5 * y) + b, store64(lanes[x][y])[b] :! U8);
                 b <- (b + 1) :! {0..7}
             return state;
             y <- (y + 1) :! {0..4}
@@ -150,75 +160,9 @@ def keccak_f1600(state: State) =
 def min(x: Nat, y: Nat): Nat = 
     if x > y then y else x
 
-# Keccak sponge function which has as a building block the Keccak-f1600 permutation
-def keccak<$r, $n, $o>(bitrate: {$r * 8}, capacity: {0..1592}, input: [U8; $n], delim_suffix: U8, output_len: {$o}) =
-    unsafe if !(capacity + bitrate == 1600) then fail! else
-    let state = [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    ] :: State in
-    let byterate = bitrate / 8 in
-    let input_len = vlen(input) in
-    let offset = 0 :: {0..$n} in
-    let blk_size = 0 :: {0..$r * 8} in
-    let i = 0 :: {0..199} in
-    let offset_state_blksize = [] :! [{0..$n}, State, {0..$r * 8}] in
-    let state_and_blksize = loop $n do
-        blk_size <- if offset < input_len then min(input_len - offset, byterate) :! {0..$r * 8} else blk_size;
-        state <- if offset < input_len
-            then loop $r * 8 do
-                state <- if i < blk_size then state[i => (state[i] ^ vref(input, offset + i)) :! U8] else state;
-                i <- (i + 1) :! {0..199}
-            return state
-            else state;
-        offset_state_blksize <- if offset < input_len 
-            then loop 1 do
-                offset <- (offset + blk_size) :! {0..$n};
-                state <- if blk_size == byterate then keccak_f1600(state) else state;
-                blk_size <- if blk_size == byterate then 0 else blk_size
-            return [offset] ++ [state] ++ [blk_size]
-            else [offset] ++ [state] ++ [blk_size];
-        offset <- offset_state_blksize[0];
-        state <- offset_state_blksize[1];
-        blk_size <- offset_state_blksize[2]
-    return [state, blk_size] in
-    let state = state_and_blksize[0] in
-    let blk_size = state_and_blksize[1] in
-    let state = state[blk_size :! {0..199} => (state[blk_size :! {0..199}] ^ delim_suffix) :! U8] in
-    let state = if !((delim_suffix & 128) == 0) && (blk_size == byterate - 1) then keccak_f1600(state) else state in
-    let state = state[(byterate - 1) :! {0..199} => (state[(byterate - 1) :! {0..199}] ^ 128) :! U8] in
-    let state = keccak_f1600(state) in
-    let output = [] :! [U8; $o] in
-    let accum = [] :! [U8; $r] in
-    let i = 0 :: {0..$r} in
-    loop $o do
-        accum <- [] :! [U8; $r];
-        blk_size <- if output_len > 0 then min(output_len, byterate) :! {0..$r} else blk_size;
-        output <- if output_len > 0
-            then (output ++ loop $o do
-                accum <- if i < blk_size then (accum ++ [state[i :! {0..199}]]) :! [U8; $r] else accum;
-                i <- (i + 1) :! {0..$r}
-            return accum) :! [U8; $o]
-            else output;
-        output_len <- if output_len > 0 then (output_len - blk_size) :! {$o} else output_len;
-    return output
-
-# Converts byte vectors of length 32 into byte strings
-def v2b_256(vec: [U8; 32]) =
-    n2b(for byte in enumerate(vec) fold accum = 0 :: Nat with accum + (byte[1] << (8 * (31 - byte[0]))))
-
-# Converts byte vectors of arbitrary length into byte strings
-def v2b<$n>(bvec: [U8; $n]) =
-    unsafe if $n == 0 then x"" else
-    let n2b_8 = [
+# Utility function for converting U8 to %[1]
+def n2b_8(n: U8) =
+    [
         x"00", x"01", x"02", x"03", x"04", x"05", x"06", x"07", x"08", x"09", x"0a", x"0b", x"0c", x"0d", x"0e", x"0f",
         x"10", x"11", x"12", x"13", x"14", x"15", x"16", x"17", x"18", x"19", x"1a", x"1b", x"1c", x"1d", x"1e", x"1f",
         x"20", x"21", x"22", x"23", x"24", x"25", x"26", x"27", x"28", x"29", x"2a", x"2b", x"2c", x"2d", x"2e", x"2f",
@@ -235,8 +179,74 @@ def v2b<$n>(bvec: [U8; $n]) =
         x"d0", x"d1", x"d2", x"d3", x"d4", x"d5", x"d6", x"d7", x"d8", x"d9", x"da", x"db", x"dc", x"dd", x"de", x"df",
         x"e0", x"e1", x"e2", x"e3", x"e4", x"e5", x"e6", x"e7", x"e8", x"e9", x"ea", x"eb", x"ec", x"ed", x"ee", x"ef",
         x"f0", x"f1", x"f2", x"f3", x"f4", x"f5", x"f6", x"f7", x"f8", x"f9", x"fa", x"fb", x"fc", x"fd", x"fe", x"ff",
-    ] in
-    for byte in bvec fold bstr = x"" :! %[$n] with (bstr ++ n2b_8[byte]) :! %[$n]
+    ][n]
+
+# Utility function for functional updates of bytestrings
+def bupdate<$n>(bstr: %[$n + 1], update_idx: {0..$n}, byte: U8) =
+    unsafe let idx = 0 :: {0..$n} in
+    let updated_str = "" :! %[$n +1] in
+    loop $n + 1 do
+        updated_str <- (updated_str ++ if idx == update_idx then n2b_8(byte) else n2b_8(bstr[idx])) :! %[$n + 1];
+        idx <- (idx + 1) :! {0..$n}
+    return updated_str
+
+# Keccak sponge function which has as a building block the Keccak-f1600 permutation
+def keccak<$r, $n, $o>(bitrate: {$r * 8}, capacity: {0..1592}, input: %[$n + 1], delim_suffix: U8, output_len: {$o}) =
+    unsafe if !(capacity + bitrate == 1600) then fail! else
+    let state = x"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" :: State in
+    let byterate = bitrate / 8 in
+    let input_len = blen(input) in
+    let offset = 0 :: {0..$n} in
+    let blk_size = 0 :: {0..$r * 8} in
+    let i = 0 :: {0..199} in
+    let offset_state_blksize = [] :! [{0..$n}, State, {0..$r * 8}] in
+    let state_and_blksize = loop $n + 1 do
+        blk_size <- if offset < input_len then min(input_len - offset, byterate) :! {0..$r * 8} else blk_size;
+        state <- if offset < input_len
+            then loop $r * 8 do
+                state <- if i < blk_size then bupdate(state, i, (state[i] ^ input[(offset + i) :! {0..$n}]) :! U8) else state;
+                i <- (i + 1) :! {0..199}
+            return state
+            else state;
+        offset_state_blksize <- if offset < input_len 
+            then loop 1 do
+                offset <- (offset + blk_size) :! {0..$n};
+                state <- if blk_size == byterate then keccak_f1600(state) else state;
+                blk_size <- if blk_size == byterate then 0 else blk_size
+            return [offset] ++ [state] ++ [blk_size]
+            else [offset] ++ [state] ++ [blk_size];
+        offset <- offset_state_blksize[0];
+        state <- offset_state_blksize[1];
+        blk_size <- offset_state_blksize[2]
+    return [state, blk_size] in
+    let state = state_and_blksize[0] in
+    let blk_size = state_and_blksize[1] in
+    let state = bupdate(state, blk_size :! {0..199}, (state[blk_size :! {0..199}] ^ delim_suffix) :! U8) in
+    let state = if !((delim_suffix & 128) == 0) && (blk_size == byterate - 1) then keccak_f1600(state) else state in
+    let state = bupdate(state, (byterate - 1) :! {0..199}, (state[(byterate - 1) :! {0..199}] ^ 128) :! U8) in
+    let state = keccak_f1600(state) in
+    let output = "" :! %[$o] in
+    let accum = "" :! %[$r] in
+    let i = 0 :: {0..$r} in
+    loop $o do
+        accum <- "" :! %[$r];
+        blk_size <- if output_len > 0 then min(output_len, byterate) :! {0..$r} else blk_size;
+        output <- if output_len > 0
+            then (output ++ loop $o do
+                accum <- if i < blk_size then (accum ++ n2b_8(state[i :! {0..199}])) :! %[$r] else accum;
+                i <- (i + 1) :! {0..$r}
+            return accum) :! %[$o]
+            else output;
+        output_len <- if output_len > 0 then (output_len - blk_size) :! {$o} else output_len;
+    return output
+
+# Converts byte vectors of length 32 into byte strings
+def v2b_256(vec: [U8; 32]) =
+    n2b(for byte in enumerate(vec) fold accum = 0 :: Nat with accum + (byte[1] << (8 * (31 - byte[0]))))
+
+# Converts byte vectors of arbitrary length into byte strings
+def v2b<$n>(bvec: [U8; $n]) =
+    unsafe for byte in bvec fold bstr = x"" :! %[$n] with (bstr ++ n2b_8(byte)) :! %[$n]
 
 # Converts byte strings of arbitrary length into byte vectors
 def b2v<$n>(bstr: %[$n]) =
@@ -246,28 +256,28 @@ def b2v<$n>(bstr: %[$n]) =
 ## algorithms as standardized by the NIST on August 5, 2015.
 
 # Extendable output function (XOF) with 128 bits of security
-def shake128<$n, $o>(input: [U8; $n], output_len: {$o}) =
-    keccak(1344, 256, input, 31, output_len)
+def shake128<$n, $o>(input: %[$n + 1], output_len: {$o}) =
+    keccak<$n = $n>(1344, 256, input, 31, output_len)
 
 # Extendable output function (XOF) with 256 bits of security
-def shake256<$n, $o>(input: [U8; $n], output_len: {$o}) =
-    keccak(1088, 512, input, 31, output_len)
+def shake256<$n, $o>(input: %[$n + 1], output_len: {$o}) =
+    keccak<$n = $n>(1088, 512, input, 31, output_len)
 
 # 28-byte output SHA-3 hashing function
-def sha3_224<$n>(input: [U8; $n]) =
-    keccak(1152, 448, input, 6, 28)
+def sha3_224<$n>(input: %[$n + 1]) =
+    keccak<$n = $n>(1152, 448, input, 6, 28)
 
 # 32-byte output SHA-3 hashing function
-def sha3_256<$n>(input: [U8; $n]) =
-    keccak(1088, 512, input, 6, 32)
+def sha3_256<$n>(input: %[$n + 1]) =
+    keccak<$n = $n>(1088, 512, input, 6, 32)
 
 # 48-byte output SHA-3 hashing function
-def sha3_384<$n>(input: [U8; $n]) =
-    keccak(832, 768, input, 6, 48)
+def sha3_384<$n>(input: %[$n + 1]) =
+    keccak<$n = $n>(832, 768, input, 6, 48)
 
 # 64-byte output SHA-3 hashing function
-def sha3_512<$n>(input: [U8; $n]) =
-    keccak(576, 1024, input, 6, 64)
+def sha3_512<$n>(input: %[$n + 1]) =
+    keccak<$n = $n>(576, 1024, input, 6, 64)
 
 
 ## The last 4 interfaces use the Keccak hashing algorithm as originally submitted to the NIST
@@ -275,17 +285,17 @@ def sha3_512<$n>(input: [U8; $n]) =
 ## uses this version of Keccak.
 
 # 28-byte output Keccak hashing function
-def keccak224<$n>(input: [U8; $n]) =
-    keccak(1152, 448, input, 1, 28)
+def keccak224<$n>(input: %[$n + 1]) =
+    keccak<$n = $n>(1152, 448, input, 1, 28)
 
 # 32-byte output Keccak hashing function
-def keccak256<$n>(input: [U8; $n]) =
-    keccak(1088, 512, input, 1, 32)
+def keccak256<$n>(input: %[$n + 1]) =
+    keccak<$n = $n>(1088, 512, input, 1, 32)
 
 # 48-byte output Keccak hashing function
-def keccak384<$n>(input: [U8; $n]) =
-    keccak(832, 768, input, 1, 48)
+def keccak384<$n>(input: %[$n + 1]) =
+    keccak<$n = $n>(832, 768, input, 1, 48)
 
 # 64-byte output Keccak hashing function
-def keccak512<$n>(input: [U8; $n]) =
-    keccak(576, 1024, input, 1, 64)
+def keccak512<$n>(input: %[$n + 1]) =
+    keccak<$n = $n>(576, 1024, input, 1, 64)
