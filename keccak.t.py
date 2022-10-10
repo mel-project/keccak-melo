@@ -150,15 +150,7 @@ def randBytes():
     return bytearray([random.randint(0, 255) for i in range(numBytes)])
 
 def bytesToString(bytes):
-    bytes = bytearray.fromhex(bytes)
-    output = '['
-
-    for byte in bytes:
-        output += str(int(byte)) + ', '
-
-    output += ']'
-    return output
-
+    return 'x\"' + bytes + '\"'
 
 def DIFFERENTIAL_TEST(runs = 256):
     command = 'melorun keccak.melo -i'
@@ -172,7 +164,7 @@ def DIFFERENTIAL_TEST(runs = 256):
 
         command = func + '(' + bytesToString(data.hex()) + ')'
         child.sendline(command)
-        child.expect('\\r\\n\\r\\n')
+        child.expect('\\r\\n\\r\\n', timeout = 3000)
         output = child.before.decode('ascii')
         meloHash = re.search('x\"[a-z0-9]+\"', output).group()
         meloHash = meloHash[2:len(meloHash) - 1]
