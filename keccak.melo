@@ -1,14 +1,17 @@
+provide keccak224
+provide keccak256
+provide keccak384
+provide keccak512
+
 provide shake128
 provide shake256
 provide sha3_224
 provide sha3_256
 provide sha3_384
 provide sha3_512
-provide keccak224
-provide keccak256
-provide keccak384
-provide keccak512
+
 provide b2v
+provide n2b_8
 provide v2b
 provide v2b_256
 
